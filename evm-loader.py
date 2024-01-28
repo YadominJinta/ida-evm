@@ -12,7 +12,7 @@ def accept_file(li, filename):
 def load_file(li, neflags, format):
     
     # Select the PC processor module
-    idaapi.set_processor_type("EVM", SETPROC_ALL|SETPROC_FATAL)
+    idaapi.set_processor_type("EVM", SETPROC_LOADER_NON_FATAL|SETPROC_LOADER)
     
     # TODO: detect and emulate contract creation code
     li.seek(0)
@@ -21,14 +21,14 @@ def load_file(li, neflags, format):
         return 0
 
     if buf[0:2] == '0x':
-        print "Detected hex"
+        print("Detected hex")
         new_buf = buf[2:].strip().rstrip()
         buf_set = set()
         for c in new_buf:
             buf_set.update(c)
         hex_set = set(list('0123456789abcdef'))
         if buf_set <= hex_set: # subset
-            print "Replacing original buffer with hex decoded version"
+            print("Replacing original buffer with hex decoded version")
             buf = new_buf.decode('hex')
 
     # Load all shellcode into different segments
@@ -36,10 +36,11 @@ def load_file(li, neflags, format):
     seg = idaapi.segment_t()
     size = len(buf)
     end  = start + size
+    print(end)
     
     # Create the segment
-    seg.startEA = start
-    seg.endEA   = end
+    seg.start_ea = start
+    seg.end_ea   = end
     seg.bitness = 1 # 32-bit
     idaapi.add_segm_ex(seg, "evm", "CODE", 0)
 
@@ -50,17 +51,18 @@ def load_file(li, neflags, format):
 
 
     # check for swarm hash and make it data instead of code
-    swarm_hash_address = buf.find('ebzzr0')
+    swarm_hash_address = buf.find(b'ebzzr0')
     if swarm_hash_address != -1:
-        print "Swarm hash detected, making it data"
+        print("Swarm hash detected, making it data")
         for i in range(swarm_hash_address-1, swarm_hash_address+42):
             MakeByte(i)
         ida_bytes.set_cmt(swarm_hash_address-1, "swarm hash", True)
     # add entry point
-    idaapi.add_entry(start, start, "start", 1) 
+    #idaapi.add_entry(start, start, "start", 1) 
 
     # add comment to beginning of disassembly
-    idaapi.describe(start, True, "EVM bytecode disassembly")
+    #idaapi.describe(start, True, "EVM bytecode disassembly")
+    ida_entry.add_entry(start, start, "start", True)
 
     # Mark for analysis
     AutoMark(start, AU_CODE)
